@@ -54,7 +54,7 @@
 
 <script>
   // ▼▼▼ 必ず変更してください（推測されにくいランダム文字列に） ▼▼▼
-  const TOPIC = 'genki-jiichan-CHANGE_ME_RANDOM';
+  const TOPIC = 'gi-chan-genki-aono-k7m2p9';
   // ▲▲▲ 例: 'genki-yamada-x7k2m9pq' のように家族しか知らない文字列にする ▲▲▲
 
   const btn = document.getElementById('btn');
@@ -83,7 +83,6 @@
 
       const res = await fetch(`https://ntfy.sh/${TOPIC}`, {
         method: 'POST',
-        headers: { 'Title': 'じいちゃん元気確認', 'Tags': 'green_heart' },
         body: `じいちゃんが元気ボタンを押しました (${hh}:${mm})`
       });
 
