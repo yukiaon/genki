@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>げんき確認</title>
+<meta name="theme-color" content="#22c55e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="げんき">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%2322c55e'/%3E%3Ctext x='90' y='130' font-size='100' text-anchor='middle' fill='white'%3E%E2%9C%93%3C/text%3E%3C/svg%3E">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; }
+  body {
+    background: #f0fdf4;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    user-select: none; -webkit-user-select: none;
+  }
+  .header { font-size: 32px; color: #166534; margin-bottom: 16px; font-weight: bold; }
+  .date { font-size: 24px; color: #4b5563; margin-bottom: 50px; }
+  .btn {
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: #22c55e; color: white; border: none;
+    font-size: 64px; font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(34,197,94,0.4);
+    transition: transform 0.15s, background 0.2s, box-shadow 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1.1; font-family: inherit;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.95); box-shadow: 0 5px 15px rgba(34,197,94,0.4); }
+  .btn.sending { background: #94a3b8; }
+  .btn.sent { background: #16a34a; font-size: 130px; }
+  .btn:disabled { cursor: default; }
+  .status {
+    font-size: 28px; color: #166534;
+    margin-top: 40px; min-height: 40px;
+    font-weight: bold; text-align: center;
+  }
+  .time { font-size: 24px; color: #4b5563; margin-top: 8px; }
+  .error { color: #dc2626; font-size: 22px; }
+</style>
+</head>
+<body>
+  <div class="header">げんき確認</div>
+  <div class="date" id="date"></div>
+  <button class="btn" id="btn">げんき<br>です</button>
+  <div class="status" id="status"></div>
+  <div class="time" id="time"></div>
+
+<script>
+  // ▼▼▼ 必ず変更してください（推測されにくいランダム文字列に） ▼▼▼
+  const TOPIC = 'genki-jiichan-CHANGE_ME_RANDOM';
+  // ▲▲▲ 例: 'genki-yamada-x7k2m9pq' のように家族しか知らない文字列にする ▲▲▲
+
+  const btn = document.getElementById('btn');
+  const statusEl = document.getElementById('status');
+  const timeEl = document.getElementById('time');
+  const dateEl = document.getElementById('date');
+
+  (function updateDate() {
+    const d = new Date();
+    const days = ['日','月','火','水','木','金','土'];
+    dateEl.textContent = `${d.getMonth()+1}月${d.getDate()}日(${days[d.getDay()]})`;
+  })();
+
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.classList.add('sending');
+    btn.innerHTML = '送信中';
+    statusEl.textContent = '';
+    timeEl.textContent = '';
+
+    try {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2,'0');
+      const mm = String(now.getMinutes()).padStart(2,'0');
+
+      const res = await fetch(`https://ntfy.sh/${TOPIC}`, {
+        method: 'POST',
+        headers: { 'Title': 'じいちゃん元気確認', 'Tags': 'green_heart' },
+        body: `じいちゃんが元気ボタンを押しました (${hh}:${mm})`
+      });
+
+      if (!res.ok) throw new Error('送信失敗');
+
+      btn.classList.remove('sending');
+      btn.classList.add('sent');
+      btn.innerHTML = '✓';
+      statusEl.textContent = '送信しました';
+      timeEl.textContent = `${hh}:${mm}`;
+    } catch (e) {
+      btn.classList.remove('sending');
+      btn.innerHTML = 'もう一度<br>おす';
+      btn.disabled = false;
+      statusEl.innerHTML = '<span class="error">送信できませんでした<br>電波を確認してください</span>';
+    }
+  });
+</script>
+</body>
+</html>
