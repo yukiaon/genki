@@ -68,38 +68,78 @@
     dateEl.textContent = `${d.getMonth()+1}月${d.getDate()}日(${days[d.getDay()]})`;
   })();
 
-  btn.addEventListener('click', async () => {
+  const LAST_KEY = 'genki-last-sent';   // 直近の送信時刻(二重送信よけ)
+  const DEDUPE_MS = 60 * 1000;          // シールの読み直し等、1分以内の再送はしない
+  const RETRIES = 3;                    // 自動送信の試行回数
+
+  function showSent(hh, mm) {
+    btn.disabled = true;
+    btn.classList.remove('sending');
+    btn.classList.add('sent');
+    btn.innerHTML = '✓';
+    statusEl.textContent = '送信しました';
+    timeEl.textContent = `${hh}:${mm}`;
+  }
+
+  async function postOnce(body) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const res = await fetch(`https://ntfy.sh/${TOPIC}`, {
+        method: 'POST', body, cache: 'no-store', signal: ctrl.signal
+      });
+      if (!res.ok) throw new Error('送信失敗');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function send(tries) {
     if (btn.disabled) return;
     btn.disabled = true;
+    btn.classList.remove('sent');
     btn.classList.add('sending');
     btn.innerHTML = '送信中';
     statusEl.textContent = '';
     timeEl.textContent = '';
 
-    try {
-      const now = new Date();
-      const hh = String(now.getHours()).padStart(2,'0');
-      const mm = String(now.getMinutes()).padStart(2,'0');
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const body = `じいちゃんが元気ボタンを押しました (${hh}:${mm})`;
 
-      const res = await fetch(`https://ntfy.sh/${TOPIC}`, {
-        method: 'POST',
-        body: `じいちゃんが元気ボタンを押しました (${hh}:${mm})`
-      });
-
-      if (!res.ok) throw new Error('送信失敗');
-
-      btn.classList.remove('sending');
-      btn.classList.add('sent');
-      btn.innerHTML = '✓';
-      statusEl.textContent = '送信しました';
-      timeEl.textContent = `${hh}:${mm}`;
-    } catch (e) {
-      btn.classList.remove('sending');
-      btn.innerHTML = 'もう一度<br>おす';
-      btn.disabled = false;
-      statusEl.innerHTML = '<span class="error">送信できませんでした<br>電波を確認してください</span>';
+    for (let i = 0; i < tries; i++) {
+      try {
+        await postOnce(body);
+        try { localStorage.setItem(LAST_KEY, JSON.stringify({ t: Date.now(), hh, mm })); } catch (e) {}
+        showSent(hh, mm);
+        return;
+      } catch (e) {
+        if (i < tries - 1) await new Promise(r => setTimeout(r, 2000));
+      }
     }
-  });
+    btn.classList.remove('sending');
+    btn.innerHTML = 'もう一度<br>おす';
+    btn.disabled = false;
+    statusEl.innerHTML = '<span class="error">送信できませんでした<br>電波を確認してください</span>';
+  }
+
+  btn.addEventListener('click', () => send(1));
+
+  // NFCシール用: ?nfc=1 で開かれたら、ボタンを押したのと同じ送信を自動で行う
+  (function autoSendFromNfc() {
+    if (!new URLSearchParams(location.search).has('nfc')) return;
+    // タブの復元や再読み込みで勝手に再送しないよう、URLから ?nfc を外しておく
+    history.replaceState(null, '', location.pathname);
+
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem(LAST_KEY)); } catch (e) {}
+    if (last && Date.now() - last.t < DEDUPE_MS) {
+      showSent(last.hh, last.mm);
+      return;
+    }
+    send(RETRIES);
+  })();
 </script>
 </body>
 </html>
